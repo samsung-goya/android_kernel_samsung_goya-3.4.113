@@ -424,6 +424,39 @@ static void kthread_flush_work_fn(struct kthread_work *work)
 	complete(&fwork->done);
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * flush_kthread_work - flush a kthread_work
+ * @work: work to flush
+ *
+ * If @work is queued or executing, wait for it to finish execution.
+ */
+void flush_kthread_work(struct kthread_work *work)
+{
+	int seq = work->queue_seq;
+
+	atomic_inc(&work->flushing);
+
+	/*
+	 * mb flush-b0 paired with worker-b1, to make sure either
+	 * worker sees the above increment or we see done_seq update.
+	 */
+	smp_mb__after_atomic_inc();
+
+	/* A - B <= 0 tests whether B is in front of A regardless of overflow */
+	wait_event(work->done, seq - work->done_seq <= 0);
+	atomic_dec(&work->flushing);
+
+	/*
+	 * rmb flush-b1 paired with worker-b0, to make sure our caller
+	 * sees every change made by work->func().
+	 */
+	smp_mb__after_atomic_dec();
+}
+EXPORT_SYMBOL_GPL(flush_kthread_work);
+
+>>>>>>> 34b6567e91b3 (kthread_worker: reorganize to prepare for flush_kthread_work() reimplementation)
 /**
  * flush_kthread_work - flush a kthread_work
  * @work: work to flush
