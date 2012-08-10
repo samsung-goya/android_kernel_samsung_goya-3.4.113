@@ -46,10 +46,10 @@ __mutex_fastpath_lock(atomic_t *count, void (*fail_fn)(atomic_t *))
 static inline int
 __mutex_fastpath_lock_retval(atomic_t *count)
 {
-	if (unlikely(atomic_xchg(count, 0) != 1))
-		if (likely(atomic_xchg(count, -1) != 1))
-			return -1;
-	return 0;
+        if (unlikely(atomic_xchg(count, 0) != 1))
+                if (likely(atomic_xchg(count, -1) != 1))
+                        return -1;
+        return 0;
 }
 
 /**
