@@ -656,7 +656,13 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 		return -EINVAL;
 	mem = idev->info->mem + mi;
 
-	if (vma->vm_end - vma->vm_start > mem->size)
+	/*
+	 * goyawifi: the CODA7542 SRAM region is not page aligned (0xd100ea00,
+	 * 0x11600 bytes) and Marvell's codec library maps the whole pages it
+	 * covers, as uio allowed before 3.4.71. Check against those pages.
+	 */
+	if (vma->vm_end - vma->vm_start >
+	    PAGE_ALIGN((mem->addr & ~PAGE_MASK) + mem->size))
 		return -EINVAL;
 
 	vma->vm_flags |= VM_IO | VM_RESERVED;
