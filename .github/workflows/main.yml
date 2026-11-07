@@ -21,7 +21,7 @@ jobs:
         export ARCH=arm
         export CROSS_COMPILE=/opt/toolchains/arm-eabi-4.6/bin/arm-eabi-
         sed -i 's/^YYLTYPE yylloc;/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c_shipped
-        make -j2 goyawifi_lineage_defconfig
+        make -j2 goyawifi_recovery_twrp_defconfig
         make -j$(nproc --all)
     - name: Moving Output # CI only
       run: |
