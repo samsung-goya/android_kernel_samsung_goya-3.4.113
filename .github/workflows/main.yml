@@ -14,7 +14,7 @@ jobs:
     - name: Getting Toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install lib32z1
+        sudo apt-get install lib32z1 ccache
         sudo git clone --depth 1 --branch android-4.4.4_r2.0.1 --single-branch https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6 /opt/toolchains/arm-eabi-4.6/
     - name: Building Kernel
       run: |
