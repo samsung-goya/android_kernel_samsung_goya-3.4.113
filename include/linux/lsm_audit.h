@@ -22,6 +22,11 @@
 #include <linux/key.h>
 #include <linux/skbuff.h>
 
+struct lsm_ioctlop_audit {
+	struct path path;
+	u16 cmd;
+};
+
 struct lsm_network_audit {
 	int netif;
 	struct sock *sk;
@@ -53,12 +58,14 @@ struct common_audit_data {
 #define LSM_AUDIT_DATA_KMOD	8
 #define LSM_AUDIT_DATA_INODE	9
 #define LSM_AUDIT_DATA_DENTRY	10
+#define LSM_AUDIT_DATA_IOCTL_OP	11
 	struct task_struct *tsk;
 	union 	{
 		struct path path;
 		struct dentry *dentry;
 		struct inode *inode;
 		struct lsm_network_audit *net;
+		struct lsm_ioctlop_audit *op;
 		int cap;
 		int ipc_id;
 		struct task_struct *tsk;
