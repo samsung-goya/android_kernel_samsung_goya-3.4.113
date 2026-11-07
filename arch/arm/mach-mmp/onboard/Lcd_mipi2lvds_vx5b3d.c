@@ -33,6 +33,17 @@
 struct pxa168fb_info *fbi_global = NULL;
 struct Quicklogic_bridge_info *g_vx5b3d = NULL;
 
+/* goyawifi: LCD 3.3V rail state. Touch I2C stops working while this rail is
+ * off, so it follows the bridge power and not the screen state. */
+static bool goya_lcd_rail_on;
+
+static void goya_lcd_rail(struct pxa168fb_info *fbi, bool on)
+{
+	if (goya_lcd_rail_on == on)
+		return;
+	lcd_power(fbi, on);
+	goya_lcd_rail_on = on;
+}
 
 void vx5b3d_backlightReg_on(int reg_on)
 {
@@ -40,7 +51,7 @@ void vx5b3d_backlightReg_on(int reg_on)
 
 #if defined(CONFIG_QUICKLOGIC_BRIDGE)
 	if (reg_on == true) {
-		lcd_power(fbi_global, 1);
+		goya_lcd_rail(fbi_global, true);
 		mutex_lock(&pvx5b3d->pwr_lock);
 
 		/*6.3Khz period for pwm */
@@ -194,6 +205,8 @@ void goya_brightness_update(void)
 	goya_update_brightness(vx5b3d);
 }
 
+void goya_panel_output_ready(void);
+
 static int goya_set_brightness(struct backlight_device *bd)
 {
 	struct Quicklogic_bridge_info *vx5b3d = g_vx5b3d;
@@ -203,8 +216,12 @@ static int goya_set_brightness(struct backlight_device *bd)
 
 	printk("backlight control =[%d] \n",bd->props.brightness);
 
-	if (fbi_global->active)
-		goya_update_brightness(vx5b3d);
+	if (fbi_global->active) {
+		if (!vx5b3d->vx5b3d_enable && bd->props.brightness > 0)
+			goya_panel_output_ready();
+		else
+			goya_update_brightness(vx5b3d);
+	}
 
 	return ret;
 }
@@ -259,6 +276,18 @@ int vx5b3d_power(struct pxa168fb_info *fbi, int on)
 		regulator_enable(lvds_1v2);
 		regulator_enable(lvds_1v8);
 
+#if defined(CONFIG_QUICKLOGIC_BRIDGE)
+		/* goyawifi: power-off parks the I2C1 pins as GPIOs; give them back
+		 * to the controller, or bridge and touch transfers time out until
+		 * the touch driver happens to power-cycle (stalls resume/suspend). */
+#if defined(CONFIG_SPA) || defined(CONFIG_SPA_LPM_MODE)
+		if (!spa_lpm_charging_mode_get())
+#else
+		if (!lpcharge)
+#endif
+			i2c1_pin_changed(0);
+#endif
+
 		if (fbi->skip_pw_on) {
 			printk("vx5b3d_power skip pw on \n");
 			gpio_free(VX5B3D_PWR_EN_VXE_3P3);
@@ -275,11 +304,14 @@ int vx5b3d_power(struct pxa168fb_info *fbi, int on)
 		udelay(20);
 
 	} else {
+		bool outputs_on = vx5b3d->vx5b3d_enable;
 		vx5b3d->prevee_strenght = 0;
 		vx5b3d->vx5b3d_enable = false;
 
-		vx5b3d_backlightReg_on(false);
-		lcd_power(fbi, 0);		
+		/* Skip if a resume left the outputs off (screen never lit). */
+		if (outputs_on)
+			vx5b3d_backlightReg_on(false);
+		goya_lcd_rail(fbi, false);	
 #if defined(CONFIG_QUICKLOGIC_BRIDGE)
 #if defined(CONFIG_SPA) || defined(CONFIG_SPA_LPM_MODE)
 		if(!spa_lpm_charging_mode_get())
@@ -445,13 +477,31 @@ int vx5b3d_brige_init(struct pxa168fb_info *fbi)
 	mdelay(10); /* For pll locking */
 	/*...end */
 #endif	
-	printk("VX5B3D ..END.....\n");
-
-	goya_brightness_update();
-	vx5b3d->vx5b3d_enable = true;
+	printk("VX5B3D ..END.....\n")
+	vx5b3d->vx5b3d_enable = false;
 
 	return 0;
 }
+
+void goya_panel_output_ready(void)
+{
+	struct Quicklogic_bridge_info *vx5b3d = g_vx5b3d;
+
+	if (!vx5b3d || vx5b3d->vx5b3d_enable)
+		return;
+	/* On system resume the screen is still off (brightness 0) and I2C
+	 * interrupts are masked, so every bridge write would wait for its
+	 * timeout. Leave the outputs off; goya_set_brightness() turns them on
+	 * when Android lights the screen. */
+	if (!vx5b3d->bd || vx5b3d->bd->props.brightness == 0) {
+		goya_lcd_rail(fbi_global, true);
+		return;
+	}
+	pr_info("goyawifi: enabling bridge outputs after DSI start\n");
+	goya_brightness_update();
+	vx5b3d->vx5b3d_enable = true;
+}
+
 
 #if defined(CONFIG_QUICKLOGIC_BRIDGE)
 static ssize_t vx5b3dxreg_write_store(struct device *dev, struct
@@ -670,6 +720,7 @@ static ssize_t lvds_clk_switch_store(struct device *dev,
 	
 	/*do dsi_init,then lvds_init is called to re-gerenate lvds pclk*/	
 	dsi_init(fbi_global);
+	goya_panel_output_ready();
 	
 	Vee_cabc->orig_lvds_clk = Vee_cabc->lvds_clk;
 	Vee_cabc->lvds_clk_switching = false;
