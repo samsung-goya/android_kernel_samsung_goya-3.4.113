@@ -424,49 +424,6 @@ static void kthread_flush_work_fn(struct kthread_work *work)
 	complete(&fwork->done);
 }
 
-<<<<<<< HEAD
-=======
-/**
- * flush_kthread_work - flush a kthread_work
- * @work: work to flush
- *
- * If @work is queued or executing, wait for it to finish execution.
- */
-void flush_kthread_work(struct kthread_work *work)
-{
-	struct kthread_flush_work fwork = {
-		KTHREAD_WORK_INIT(fwork.work, kthread_flush_work_fn),
-		COMPLETION_INITIALIZER_ONSTACK(fwork.done),
-	};
-	struct kthread_worker *worker;
-	bool noop = false;
-
-retry:
-	worker = work->worker;
-	if (!worker)
-		return;
-
-	spin_lock_irq(&worker->lock);
-	if (work->worker != worker) {
-		spin_unlock_irq(&worker->lock);
-		goto retry;
-	}
-
-	if (!list_empty(&work->node))
-		insert_kthread_work(worker, &fwork.work, work->node.next);
-	else if (worker->current_work == work)
-		insert_kthread_work(worker, &fwork.work, worker->work_list.next);
-	else
-		noop = true;
-
-	spin_unlock_irq(&worker->lock);
-
-	if (!noop)
-		wait_for_completion(&fwork.done);
-}
-EXPORT_SYMBOL_GPL(flush_kthread_work);
-
->>>>>>> 34b6567e91b3 (kthread_worker: reorganize to prepare for flush_kthread_work() reimplementation)
 /**
  * flush_kthread_work - flush a kthread_work
  * @work: work to flush
