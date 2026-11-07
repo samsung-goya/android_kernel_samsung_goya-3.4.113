@@ -171,14 +171,12 @@ void device_pm_move_last(struct device *dev)
 
 static ktime_t initcall_debug_start(struct device *dev)
 {
-	ktime_t calltime = ktime_set(0, 0);
+	ktime_t calltime = ktime_get();
 
-	if (initcall_debug) {
+	if (initcall_debug)
 		pr_info("calling  %s+ @ %i, parent: %s\n",
 			dev_name(dev), task_pid_nr(current),
 			dev->parent ? dev_name(dev->parent) : "none");
-		calltime = ktime_get();
-	}
 
 	return calltime;
 }
@@ -188,12 +186,15 @@ static void initcall_debug_report(struct device *dev, ktime_t calltime,
 {
 	ktime_t delta, rettime;
 
-	if (initcall_debug) {
-		rettime = ktime_get();
-		delta = ktime_sub(rettime, calltime);
+	rettime = ktime_get();
+	delta = ktime_sub(rettime, calltime);
+	if (initcall_debug)
 		pr_info("call %s+ returned %d after %Ld usecs\n", dev_name(dev),
 			error, (unsigned long long)ktime_to_ns(delta) >> 10);
-	}
+	/* goyawifi: name any device that makes suspend or resume slow. */
+	else if (ktime_to_ms(delta) >= 20)
+		pr_info("PM: %s %s took %lld ms\n", dev_driver_string(dev),
+			dev_name(dev), (long long)ktime_to_ms(delta));
 }
 
 /**
