@@ -1757,6 +1757,10 @@ static int pxa168fb_disable(struct pxa168fb_info *fbi)
 
 }
 
+#ifdef CONFIG_MACH_GOYA
+extern void goya_panel_output_ready(void);
+#endif
+
 static int pxa168fb_enable(struct pxa168fb_info *fbi)
 {
 	struct fb_info *info = fbi->fb_info;
@@ -1822,6 +1826,11 @@ static int pxa168fb_enable(struct pxa168fb_info *fbi)
 	/* Need enable the DMA path */
 	x = readl(fbi->reg_base + intf_ctrl(fbi->id));
 	writel(x | CFG_DUMB_ENA_MASK, fbi->reg_base + intf_ctrl(fbi->id));
+#ifdef CONFIG_MACH_GOYA
+	/* Panel data is flowing now; light the LVDS bridge and backlight. */
+	if (fbi->id == 0)
+		goya_panel_output_ready();
+#endif
 
 	pr_info("pxa168fb.%d enable -\n", fbi->id);
 	return 0;
