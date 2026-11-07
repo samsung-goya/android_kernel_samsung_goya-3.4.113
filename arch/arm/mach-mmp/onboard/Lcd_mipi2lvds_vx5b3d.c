@@ -477,7 +477,7 @@ int vx5b3d_brige_init(struct pxa168fb_info *fbi)
 	mdelay(10); /* For pll locking */
 	/*...end */
 #endif	
-	printk("VX5B3D ..END.....\n")
+	printk("VX5B3D ..END.....\n");
 	vx5b3d->vx5b3d_enable = false;
 
 	return 0;
