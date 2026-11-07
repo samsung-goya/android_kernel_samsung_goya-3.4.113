@@ -39,7 +39,7 @@
 #       define MRVL_PMEM_MINOR_FLAG             1
 #   endif
 #   if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,39))
-#       define gcdMEM_TYPE_IONAF_3_4_39      1
+#       define gcdMEM_TYPE_IONAF_3_4_39      0
 #   else
 #       define gcdMEM_TYPE_IONAF_3_4_39      0
 #   endif
