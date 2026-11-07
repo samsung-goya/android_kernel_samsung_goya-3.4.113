@@ -4261,6 +4261,7 @@ extern int i2c_set_pio_mode(void);
 static void emei_dkb_poweroff(void)
 {
 	unsigned char data;
+	int pd_ret;
 #ifdef CONFIG_BATTERY_SAMSUNG
 	static char *pss[] = {"battery"};
 	int i;
@@ -4320,12 +4321,29 @@ static void emei_dkb_poweroff(void)
 
 	pr_info("turning off power....\n");
 
+	/*
+	 * Since 3.4.113, machine_shutdown() stops the other CPU with preemption
+	 * disabled before we get here, and the interrupt-driven I2C transfer to
+	 * the PMIC no longer completes: the tablet halted with everything
+	 * powered instead of switching off. Talk to the PMIC by polling, as the
+	 * panic path does.
+	 */
+	i2c_set_pio_mode();
+
 	/* save power off reason */
 	data = PMIC_GENERAL_USE_BOOT_BY_NONE | PMIC_GENERAL_USE_SHUTDOWN_BY_POWEROFF;
-	pm822_extern_write(PM822_BASE_PAGE, PMIC_GENERAL_USE_REGISTER, data);
-	data = pm822_extern_read(PM822_BASE_PAGE, PM822_WAKEUP1);
-	pm822_extern_write(PM822_BASE_PAGE, PM822_WAKEUP1,
-			   data | PM822_SW_PDOWN);
+	pd_ret = pm822_extern_write(PM822_BASE_PAGE, PMIC_GENERAL_USE_REGISTER, data);
+	pr_emerg("power off: reason write %d\n", pd_ret);
+	pd_ret = pm822_extern_read(PM822_BASE_PAGE, PM822_WAKEUP1);
+	pr_emerg("power off: WAKEUP1 read 0x%x\n", pd_ret);
+	pd_ret = pm822_extern_write(PM822_BASE_PAGE, PM822_WAKEUP1,
+			   (pd_ret < 0 ? 0 : pd_ret) | PM822_SW_PDOWN);
+	pr_emerg("power off: SW_PDOWN write %d\n", pd_ret);
+
+	/* Still running: never stay halted with the battery draining. */
+	mdelay(1000);
+	pr_emerg("power off: still powered after SW_PDOWN, rebooting\n");
+	machine_restart(NULL);
 }
 #elif defined(CONFIG_MFD_88PM800)
 #define PM800_SW_PDOWN			(1 << 5)

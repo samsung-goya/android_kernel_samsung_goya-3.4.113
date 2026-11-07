@@ -133,9 +133,18 @@ region_string_2_region_code(char *region_string)
 			return region_code_mapping[i].code;
 		}
 	}
-	/* Default is US */
+	/*
+	 * goyawifi: the table only knows a few countries and everything else
+	 * got the US region (channels 1-11). Most countries use ETSI rules
+	 * (channels 1-13); the kernel regulatory database still limits each
+	 * country to its own channels and power. Keep the 1-11 countries on FCC.
+	 */
+	if (!memcmp(region_string, "TW", 2) || !memcmp(region_string, "PR", 2)) {
+		LEAVE();
+		return region_code_mapping[0].code;
+	}
 	LEAVE();
-	return region_code_mapping[0].code;
+	return 0x30;		/* ETSI */
 }
 
 /**
